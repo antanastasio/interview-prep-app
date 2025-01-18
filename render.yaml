@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: interview-prep-backend
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production
+    buildFilter:
+      paths:
+        - package.json
+        - server.js
+        - public/** 
