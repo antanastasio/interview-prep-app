@@ -7,6 +7,7 @@ const mammoth = require('mammoth');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const dotenv = require('dotenv');
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -25,15 +26,16 @@ const corsOptions = {
         'http://localhost:3000',
         'http://localhost:5000',
         'https://interview-app-c5296.web.app',
-        'https://interview-app-c5296.firebaseapp.com'
+        'https://interview-app-c5296.firebaseapp.com',
+        'https://interview-prep-backend.onrender.com'
     ],
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type']
+    allowedHeaders: ['Content-Type'],
+    credentials: true
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use(express.static('public'));
 
 // Generate questions using OpenAI
 async function generateQuestions(jobDescription, resumeText, type) {
@@ -254,6 +256,17 @@ app.post('/api/generate-questions', async (req, res) => {
                 ? `Error: ${error.message}\n${error.stack}` 
                 : 'Failed to generate questions. Please try again.'
         });
+    }
+});
+
+// Serve static files AFTER API routes
+app.use(express.static('public'));
+
+// Catch-all route for SPA
+app.get('*', (req, res) => {
+    // Only handle non-API routes
+    if (!req.path.startsWith('/api/')) {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
     }
 });
 
