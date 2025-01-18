@@ -31,7 +31,13 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Validate API key format
+if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.startsWith('sk-')) {
+    console.error('Invalid OpenAI API key format. API key should start with "sk-"');
+}
+
 console.log('OpenAI initialized with API key present:', !!process.env.OPENAI_API_KEY);
+console.log('OpenAI API key format valid:', process.env.OPENAI_API_KEY?.startsWith('sk-'));
 
 // API Routes
 const router = express.Router();
