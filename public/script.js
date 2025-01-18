@@ -1,7 +1,7 @@
 // API base URL - Automatically select between local and production
 const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3000'
-    : 'https://interview-prep-backend.onrender.com';
+    ? 'http://localhost:10000'
+    : 'https://interview-prep-app-m9jc.onrender.com';
 
 // DOM Elements
 
