@@ -2,10 +2,6 @@ const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
 const OpenAI = require('openai');
-const pdf = require('pdf-parse');
-const mammoth = require('mammoth');
-const axios = require('axios');
-const cheerio = require('cheerio');
 const dotenv = require('dotenv');
 const path = require('path');
 
@@ -13,57 +9,112 @@ const path = require('path');
 dotenv.config();
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Logging middleware
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
+});
+
+// Configure CORS
+app.use(cors());
+
+// Body parsing middleware
+app.use(express.json());
 
 // Initialize OpenAI
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Configure CORS
-const corsOptions = {
-    origin: [
-        'http://localhost:3000',
-        'http://localhost:5000',
-        'https://interview-app-c5296.web.app',
-        'https://interview-app-c5296.firebaseapp.com',
-        'https://interview-prep-backend.onrender.com'
-    ],
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type'],
-    credentials: true
-};
-
-app.use(cors(corsOptions));
-app.use(express.json());
-
-// ... existing code ...
-
-// API Routes
-app.post('/api/check-answer', async (req, res) => {
-    // ... existing code ...
+// Basic route for testing
+app.get('/', (req, res) => {
+    console.log('Root endpoint accessed');
+    res.send('Interview Prep Backend is Running');
 });
 
-app.post('/api/assess-readiness', async (req, res) => {
-    // ... existing code ...
+// Test route
+app.get('/api/test', (req, res) => {
+    console.log('Test endpoint accessed');
+    res.json({ message: 'Backend is running!' });
 });
 
+// Generate questions endpoint
 app.post('/api/generate-questions', async (req, res) => {
-    // ... existing code ...
-});
+    console.log('Generate questions endpoint accessed');
+    console.log('Request body:', req.body);
+    
+    try {
+        const { jobData, type } = req.body;
+        
+        if (!jobData || !type) {
+            console.error('Missing required fields');
+            return res.status(400).json({ 
+                error: 'Missing required fields',
+                jobData: !!jobData,
+                type: !!type
+            });
+        }
 
-// Serve static files AFTER API routes
-app.use(express.static('public'));
+        console.log('OpenAI Key present:', !!process.env.OPENAI_API_KEY);
+        
+        if (!process.env.OPENAI_API_KEY) {
+            console.error('Missing OpenAI API key');
+            return res.status(500).json({ error: 'Server configuration error: Missing API key' });
+        }
 
-// Catch-all route for SPA
-app.get('*', (req, res) => {
-    // Only handle non-API routes
-    if (!req.path.startsWith('/api/')) {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+        const completion = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a professional interviewer. Generate interview questions in JSON format. Each question should have 'question' and 'answer' properties."
+                },
+                {
+                    role: "user",
+                    content: `Generate 5 ${type} interview questions based on this job description: "${jobData}". Format the response as a JSON array.`
+                }
+            ],
+            temperature: 0.7,
+            response_format: { type: "json_object" }
+        });
+
+        const content = completion.choices[0].message.content;
+        console.log('OpenAI response:', content);
+
+        const parsedContent = JSON.parse(content);
+        const questions = Array.isArray(parsedContent) ? parsedContent : parsedContent.questions;
+
+        if (!Array.isArray(questions)) {
+            throw new Error('Invalid response format from OpenAI');
+        }
+
+        console.log('Sending response with questions');
+        res.json({ questions });
+    } catch (error) {
+        console.error('Server Error:', error);
+        res.status(500).json({ 
+            error: 'Failed to generate questions',
+            details: error.message
+        });
     }
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Internal server error', details: err.message });
+});
+
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
+    console.log('Server starting...');
     console.log(`Server running on port ${PORT}`);
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('OpenAI API Key present:', !!process.env.OPENAI_API_KEY);
+    console.log('Available routes:');
+    console.log('- GET /');
+    console.log('- GET /api/test');
+    console.log('- POST /api/generate-questions');
 }); 
