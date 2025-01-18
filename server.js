@@ -12,36 +12,57 @@ const app = express();
 
 // Logging middleware
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] ${req.method} ${req.path}`);
+    console.log('Headers:', req.headers);
+    console.log('Query:', req.query);
+    console.log('Body:', req.body);
     next();
 });
 
-// Configure CORS
-app.use(cors());
+// Configure CORS with specific options
+const corsOptions = {
+    origin: ['http://localhost:3000', 'https://interview-app-c5296.web.app'],
+    methods: ['GET', 'POST'],
+    credentials: true,
+    optionsSuccessStatus: 204
+};
 
-// Body parsing middleware
+app.use(cors(corsOptions));
 app.use(express.json());
 
-// Initialize OpenAI
+// Initialize OpenAI with logging
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Basic route for testing
+console.log('OpenAI initialized with API key present:', !!process.env.OPENAI_API_KEY);
+
+// Health check route
 app.get('/', (req, res) => {
-    console.log('Root endpoint accessed');
-    res.send('Interview Prep Backend is Running');
+    console.log('[Health Check] Root endpoint accessed');
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV
+    });
 });
 
-// Test route
+// Test route with enhanced response
 app.get('/api/test', (req, res) => {
-    console.log('Test endpoint accessed');
-    res.json({ message: 'Backend is running!' });
+    console.log('[Test] Test endpoint accessed');
+    res.json({
+        message: 'Backend is running!',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV,
+        openaiKeyPresent: !!process.env.OPENAI_API_KEY
+    });
 });
 
-// Generate questions endpoint
+// Generate questions endpoint with enhanced logging
 app.post('/api/generate-questions', async (req, res) => {
-    console.log('Generate questions endpoint accessed');
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] Generate questions endpoint accessed`);
     console.log('Request body:', req.body);
     
     try {
@@ -52,7 +73,8 @@ app.post('/api/generate-questions', async (req, res) => {
             return res.status(400).json({ 
                 error: 'Missing required fields',
                 jobData: !!jobData,
-                type: !!type
+                type: !!type,
+                timestamp
             });
         }
 
@@ -60,9 +82,13 @@ app.post('/api/generate-questions', async (req, res) => {
         
         if (!process.env.OPENAI_API_KEY) {
             console.error('Missing OpenAI API key');
-            return res.status(500).json({ error: 'Server configuration error: Missing API key' });
+            return res.status(500).json({ 
+                error: 'Server configuration error: Missing API key',
+                timestamp
+            });
         }
 
+        console.log('Making OpenAI API call...');
         const completion = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
             messages: [
@@ -79,6 +105,7 @@ app.post('/api/generate-questions', async (req, res) => {
             response_format: { type: "json_object" }
         });
 
+        console.log('OpenAI API call successful');
         const content = completion.choices[0].message.content;
         console.log('OpenAI response:', content);
 
@@ -89,32 +116,45 @@ app.post('/api/generate-questions', async (req, res) => {
             throw new Error('Invalid response format from OpenAI');
         }
 
-        console.log('Sending response with questions');
-        res.json({ questions });
+        console.log('Successfully generated questions');
+        res.json({ 
+            questions,
+            timestamp,
+            success: true
+        });
     } catch (error) {
         console.error('Server Error:', error);
         res.status(500).json({ 
             error: 'Failed to generate questions',
-            details: error.message
+            details: error.message,
+            timestamp,
+            success: false
         });
     }
 });
 
-// Error handling middleware
+// Error handling middleware with timestamps
 app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Internal server error', details: err.message });
+    const timestamp = new Date().toISOString();
+    console.error(`[${timestamp}] Error:`, err);
+    res.status(500).json({ 
+        error: 'Internal server error', 
+        details: err.message,
+        timestamp
+    });
 });
 
-// Start server
+// Start server with enhanced logging
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log('Server starting...');
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] Server starting...`);
     console.log(`Server running on port ${PORT}`);
     console.log('Environment:', process.env.NODE_ENV);
     console.log('OpenAI API Key present:', !!process.env.OPENAI_API_KEY);
     console.log('Available routes:');
-    console.log('- GET /');
-    console.log('- GET /api/test');
-    console.log('- POST /api/generate-questions');
+    console.log('- GET / (Health check)');
+    console.log('- GET /api/test (API test)');
+    console.log('- POST /api/generate-questions (Question generation)');
+    console.log('CORS enabled for:', corsOptions.origin);
 }); 
