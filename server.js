@@ -20,21 +20,34 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] ${req.method} ${req.path}`);
+    console.log('Headers:', req.headers);
+    console.log('Query:', req.query);
+    console.log('Body:', req.body);
+    next();
+});
+
 // Configure CORS
 const corsOptions = {
     origin: [
         'http://localhost:3000',
         'http://localhost:5000',
+        'http://localhost:10000',
         'https://interview-app-c5296.web.app',
         'https://interview-app-c5296.firebaseapp.com',
-        'https://interview-prep-backend.onrender.com'
+        'https://interview-prep-app-m9jc.onrender.com'
     ],
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Accept'],
     credentials: true
 };
 
 app.use(cors(corsOptions));
+
+// Parse JSON bodies
 app.use(express.json());
 
 // Generate questions using OpenAI
