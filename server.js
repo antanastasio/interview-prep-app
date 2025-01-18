@@ -134,6 +134,17 @@ router.post('/generate-questions', async (req, res) => {
 // Mount the router at /api
 app.use('/api', router);
 
+// Catch-all route handler for 404s
+app.use((req, res) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] 404 Not Found: ${req.method} ${req.path}`);
+    res.status(404).json({
+        error: 'Not Found',
+        message: `Cannot ${req.method} ${req.path}`,
+        timestamp
+    });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
     const timestamp = new Date().toISOString();
