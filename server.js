@@ -22,8 +22,15 @@ app.use((req, res, next) => {
 
 // Configure CORS with specific options
 const corsOptions = {
-    origin: ['http://localhost:3000', 'https://interview-app-c5296.web.app'],
-    methods: ['GET', 'POST'],
+    origin: [
+        'http://localhost:3000',
+        'http://localhost:5000',
+        'https://interview-app-c5296.web.app',
+        'https://interview-app-c5296.firebaseapp.com',
+        'https://interview-prep-backend.onrender.com'
+    ],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
     optionsSuccessStatus: 204
 };
