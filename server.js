@@ -32,12 +32,19 @@ const openai = new OpenAI({
 });
 
 // Validate API key format
-if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_API_KEY.startsWith('sk-')) {
-    console.error('Invalid OpenAI API key format. API key should start with "sk-"');
+if (!process.env.OPENAI_API_KEY) {
+    console.error('OpenAI API key is missing');
+} else if (process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
+    console.error('Invalid API key format: Project keys (starting with sk-proj-) are not supported. Please use a secret key starting with sk-');
+} else if (!process.env.OPENAI_API_KEY.startsWith('sk-')) {
+    console.error('Invalid API key format: API key should start with "sk-"');
 }
 
 console.log('OpenAI initialized with API key present:', !!process.env.OPENAI_API_KEY);
-console.log('OpenAI API key format valid:', process.env.OPENAI_API_KEY?.startsWith('sk-'));
+console.log('OpenAI API key format:', process.env.OPENAI_API_KEY ? 
+    (process.env.OPENAI_API_KEY.startsWith('sk-proj-') ? 'project key (invalid)' : 
+     process.env.OPENAI_API_KEY.startsWith('sk-') ? 'valid' : 'invalid') : 
+    'missing');
 
 // API Routes
 const router = express.Router();
@@ -82,12 +89,26 @@ router.post('/generate-questions', async (req, res) => {
             });
         }
 
-        console.log('OpenAI Key present:', !!process.env.OPENAI_API_KEY);
-        
         if (!process.env.OPENAI_API_KEY) {
             console.error('Missing OpenAI API key');
             return res.status(500).json({ 
                 error: 'Server configuration error: Missing API key',
+                timestamp
+            });
+        }
+
+        if (process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
+            console.error('Project key detected instead of secret key');
+            return res.status(500).json({ 
+                error: 'Server configuration error: Project keys are not supported. Please use a secret key starting with sk-',
+                timestamp
+            });
+        }
+
+        if (!process.env.OPENAI_API_KEY.startsWith('sk-')) {
+            console.error('Invalid API key format');
+            return res.status(500).json({ 
+                error: 'Server configuration error: Invalid API key format',
                 timestamp
             });
         }
