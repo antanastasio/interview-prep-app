@@ -34,13 +34,13 @@ const openai = new OpenAI({
 // Validate API key format
 if (!process.env.OPENAI_API_KEY) {
     console.error('OpenAI API key is missing');
-} else if (!process.env.OPENAI_API_KEY.startsWith('sk-')) {
+} else if (!process.env.OPENAI_API_KEY.startsWith('sk-') && !process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
     console.error('Invalid API key format: API key should start with "sk-" or "sk-proj-"');
 }
 
 console.log('OpenAI initialized with API key present:', !!process.env.OPENAI_API_KEY);
 console.log('OpenAI API key format:', process.env.OPENAI_API_KEY ? 
-    (process.env.OPENAI_API_KEY.startsWith('sk-') ? 'valid' : 'invalid') : 
+    (process.env.OPENAI_API_KEY.startsWith('sk-') || process.env.OPENAI_API_KEY.startsWith('sk-proj-') ? 'valid' : 'invalid') : 
     'missing');
 
 // API Routes
@@ -94,7 +94,7 @@ router.post('/generate-questions', async (req, res) => {
             });
         }
 
-        if (!process.env.OPENAI_API_KEY.startsWith('sk-')) {
+        if (!process.env.OPENAI_API_KEY.startsWith('sk-') && !process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
             console.error('Invalid API key format');
             return res.status(500).json({ 
                 error: 'Server configuration error: Invalid API key format',
