@@ -10,7 +10,7 @@ dotenv.config();
 
 const app = express();
 
-// Logging middleware
+// Debug middleware to log all requests
 app.use((req, res, next) => {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] ${req.method} ${req.path}`);
@@ -20,33 +20,24 @@ app.use((req, res, next) => {
     next();
 });
 
-// Configure CORS with specific options
-const corsOptions = {
-    origin: [
-        'http://localhost:3000',
-        'http://localhost:5000',
-        'https://interview-app-c5296.web.app',
-        'https://interview-app-c5296.firebaseapp.com',
-        'https://interview-prep-backend.onrender.com'
-    ],
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-    optionsSuccessStatus: 204
-};
+// Enable CORS for all routes
+app.use(cors());
 
-app.use(cors(corsOptions));
+// Parse JSON bodies
 app.use(express.json());
 
-// Initialize OpenAI with logging
+// Initialize OpenAI
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
 console.log('OpenAI initialized with API key present:', !!process.env.OPENAI_API_KEY);
 
+// API Routes
+const router = express.Router();
+
 // Health check route
-app.get('/', (req, res) => {
+router.get('/', (req, res) => {
     console.log('[Health Check] Root endpoint accessed');
     res.json({
         status: 'healthy',
@@ -55,8 +46,8 @@ app.get('/', (req, res) => {
     });
 });
 
-// Test route with enhanced response
-app.get('/api/test', (req, res) => {
+// Test route
+router.get('/test', (req, res) => {
     console.log('[Test] Test endpoint accessed');
     res.json({
         message: 'Backend is running!',
@@ -66,8 +57,8 @@ app.get('/api/test', (req, res) => {
     });
 });
 
-// Generate questions endpoint with enhanced logging
-app.post('/api/generate-questions', async (req, res) => {
+// Generate questions route
+router.post('/generate-questions', async (req, res) => {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] Generate questions endpoint accessed`);
     console.log('Request body:', req.body);
@@ -140,7 +131,10 @@ app.post('/api/generate-questions', async (req, res) => {
     }
 });
 
-// Error handling middleware with timestamps
+// Mount the router at /api
+app.use('/api', router);
+
+// Error handling middleware
 app.use((err, req, res, next) => {
     const timestamp = new Date().toISOString();
     console.error(`[${timestamp}] Error:`, err);
@@ -151,7 +145,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Start server with enhanced logging
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     const timestamp = new Date().toISOString();
@@ -160,8 +154,7 @@ app.listen(PORT, () => {
     console.log('Environment:', process.env.NODE_ENV);
     console.log('OpenAI API Key present:', !!process.env.OPENAI_API_KEY);
     console.log('Available routes:');
-    console.log('- GET / (Health check)');
+    console.log('- GET /api (Health check)');
     console.log('- GET /api/test (API test)');
     console.log('- POST /api/generate-questions (Question generation)');
-    console.log('CORS enabled for:', corsOptions.origin);
 }); 
