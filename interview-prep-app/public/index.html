@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Interview Question Generator</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Interview Question Generator</h1>
+        <p>Generate tailored interview questions based on job descriptions</p>
+      </header>
+
+      <div class="input-section">
+        <div class="form-group">
+          <label for="job-url">Job Posting URL (Optional)</label>
+          <input type="text" id="job-url" class="url-input" placeholder="Paste job posting URL here">
+        </div>
+
+        <div class="separator">
+          <span>OR</span>
+        </div>
+
+        <div class="form-group">
+          <label for="job-description">Job Description</label>
+          <textarea id="job-description" placeholder="Paste job description here"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Upload Resume (Optional)</label>
+          <div id="upload-area" class="upload-area">
+            <img src="upload-icon.svg" alt="Upload" class="upload-icon">
+            <p>Drag & drop your resume here or click to browse</p>
+            <button class="upload-btn">Choose File</button>
+            <input type="file" id="resume-input" accept=".pdf,.doc,.docx" style="display: none;">
+            <div id="file-name" class="file-name"></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Interview Type</label>
+          <div class="radio-group">
+            <label>
+              <input type="radio" name="interview-type" value="behavioral" checked>
+              Behavioral
+            </label>
+            <label>
+              <input type="radio" name="interview-type" value="technical">
+              Technical
+            </label>
+            <label>
+              <input type="radio" name="interview-type" value="both">
+              Both
+            </label>
+          </div>
+        </div>
+
+        <button id="generate" class="generate-btn">Generate Questions</button>
+      </div>
+
+      <div id="results" class="results-section" style="display: none;">
+        <h2>Generated Questions</h2>
+        <div id="questions-list"></div>
+      </div>
+    </div>
+
+    <!-- Import and configure the Firebase SDK -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+      import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+      import { getStorage } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyCi6kaFhkc5CzH7rWsy0sWiNtRZNiO-TKA",
+        authDomain: "interview-app-c5296.firebaseapp.com",
+        projectId: "interview-app-c5296",
+        storageBucket: "interview-app-c5296.firebasestorage.app",
+        messagingSenderId: "953388623587",
+        appId: "1:953388623587:web:06c36d5de28acd125ec7d6",
+        measurementId: "G-YX9X8HJBE6"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      const storage = getStorage(app);
+
+      window.app = app;
+      window.auth = auth;
+      window.db = db;
+      window.storage = storage;
+    </script>
+
+    <script src="script.js"></script>
+  </body>
+</html>

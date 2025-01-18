@@ -2,10 +2,6 @@ const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
 const OpenAI = require('openai');
-const pdf = require('pdf-parse');
-const mammoth = require('mammoth');
-const axios = require('axios');
-const cheerio = require('cheerio');
 const dotenv = require('dotenv');
 const path = require('path');
 
@@ -13,12 +9,6 @@ const path = require('path');
 dotenv.config();
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
-
-// Initialize OpenAI
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
 
 // Debug middleware to log all requests
 app.use((req, res, next) => {
@@ -30,260 +20,168 @@ app.use((req, res, next) => {
     next();
 });
 
-// Configure CORS
-const corsOptions = {
-    origin: [
-        'http://localhost:3000',
-        'http://localhost:5000',
-        'http://localhost:10000',
-        'https://interview-app-c5296.web.app',
-        'https://interview-app-c5296.firebaseapp.com',
-        'https://interview-prep-app-m9jc.onrender.com'
-    ],
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept'],
-    credentials: true
-};
-
-app.use(cors(corsOptions));
+// Enable CORS for all routes
+app.use(cors());
 
 // Parse JSON bodies
 app.use(express.json());
 
-// Generate questions using OpenAI
-async function generateQuestions(jobDescription, resumeText, type) {
-    console.log('Generating questions...');
-    console.log('Type:', type);
-    console.log('Job Description:', jobDescription);
-    
-    try {
-        console.log('Sending request to OpenAI...');
-        const completion = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [
-                {
-                    role: "system",
-                    content: "You are a professional interviewer. Generate interview questions in JSON format. Each question should be an object with 'question', optional 'hint', and 'answer' properties. The answer should provide a comprehensive example answer."
-                },
-                {
-                    role: "user",
-                    content: `Generate 5 ${type} interview questions based on this job description: "${jobDescription}". Include hints for technical questions and model answers for all questions. Format the response as a JSON array.`
-                }
-            ],
-            temperature: 0.7,
-            response_format: { type: "json_object" }
-        });
-
-        console.log('Raw OpenAI response:', completion.choices[0]);
-        
-        // Get the response content
-        const content = completion.choices[0].message.content;
-        console.log('Response content:', content);
-
-        // Parse the JSON response
-        try {
-            const parsedContent = JSON.parse(content);
-            const questions = Array.isArray(parsedContent) ? parsedContent : parsedContent.questions;
-            
-            if (!Array.isArray(questions)) {
-                throw new Error('Response is not in the expected format');
-            }
-
-            return questions;
-        } catch (parseError) {
-            console.error('JSON Parse Error:', parseError);
-            throw new Error('Failed to parse the generated questions');
-        }
-    } catch (error) {
-        console.error('OpenAI API Error:', error.response?.data || error);
-        throw new Error(error.message || 'Failed to generate questions');
-    }
-}
-
-// Check answer using OpenAI
-async function checkAnswer(question, modelAnswer, userAnswer) {
-    try {
-        const completion = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are an interview expert who evaluates answers. Analyze the response based on the following criteria:
-                    1. Relevance (0-25): How well the answer addresses the question
-                    2. Completeness (0-25): Whether all aspects are covered
-                    3. Clarity (0-25): How clearly ideas are expressed
-                    4. Specificity (0-25): Level of detail and examples
-                    
-                    Provide feedback in JSON format with the following structure:
-                    {
-                        "scores": {
-                            "relevance": number,
-                            "completeness": number,
-                            "clarity": number,
-                            "specificity": number
-                        },
-                        "feedback": {
-                            "strengths": string[],
-                            "improvements": string[]
-                        },
-                        "overallScore": number,
-                        "suggestions": string
-                    }`
-                },
-                {
-                    role: "user",
-                    content: `Question: ${question}\n\nModel Answer: ${modelAnswer}\n\nUser Answer: ${userAnswer}\n\nProvide a detailed evaluation of the answer.`
-                }
-            ],
-            temperature: 0.7,
-            response_format: { type: "json_object" }
-        });
-
-        return completion.choices[0].message.content;
-    } catch (error) {
-        console.error('OpenAI API Error:', error.response?.data || error);
-        throw new Error('Failed to evaluate answer');
-    }
-}
-
-// Assess interview readiness
-async function assessReadiness(questions, answers, evaluations) {
-    try {
-        const completion = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are an expert interview coach who assesses candidates' interview readiness. 
-                    Analyze their performance across all questions and provide a comprehensive assessment in JSON format:
-                    {
-                        "overallScore": number,
-                        "categoryScores": {
-                            "relevance": number,
-                            "completeness": number,
-                            "clarity": number,
-                            "specificity": number
-                        },
-                        "strengths": string[],
-                        "improvementAreas": string[],
-                        "recommendations": string[],
-                        "readinessLevel": "High" | "Medium" | "Low",
-                        "confidenceScore": number,
-                        "nextSteps": string[]
-                    }`
-                },
-                {
-                    role: "user",
-                    content: `Please assess the candidate's interview readiness based on these Q&A pairs and their evaluations:\n\n${
-                        questions.map((q, i) => 
-                            `Question ${i + 1}: ${q.question}\n` +
-                            `Model Answer: ${q.answer}\n` +
-                            `Candidate's Answer: ${answers[i]}\n` +
-                            `Evaluation: ${evaluations[i]}\n\n`
-                        ).join('\n')
-                    }`
-                }
-            ],
-            temperature: 0.7,
-            response_format: { type: "json_object" }
-        });
-
-        return completion.choices[0].message.content;
-    } catch (error) {
-        console.error('OpenAI API Error:', error.response?.data || error);
-        throw new Error('Failed to assess interview readiness');
-    }
-}
-
-// Check answer endpoint
-app.post('/api/check-answer', async (req, res) => {
-    try {
-        const { question, modelAnswer, userAnswer } = req.body;
-
-        if (!question || !modelAnswer || !userAnswer) {
-            return res.status(400).json({ error: 'Missing required fields' });
-        }
-
-        const evaluation = await checkAnswer(question, modelAnswer, userAnswer);
-        res.json({ evaluation: JSON.parse(evaluation) });
-    } catch (error) {
-        console.error('Server Error:', error);
-        res.status(500).json({ error: 'Failed to check answer' });
-    }
+// Initialize OpenAI
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Readiness assessment endpoint
-app.post('/api/assess-readiness', async (req, res) => {
-    try {
-        const { questions, answers, evaluations } = req.body;
+// Validate API key format
+if (!process.env.OPENAI_API_KEY) {
+    console.error('OpenAI API key is missing');
+} else if (!process.env.OPENAI_API_KEY.startsWith('sk-') && !process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
+    console.error('Invalid API key format: API key should start with "sk-" or "sk-proj-"');
+}
 
-        if (!questions || !answers || !evaluations || questions.length !== answers.length) {
-            return res.status(400).json({ error: 'Invalid assessment data' });
-        }
+console.log('OpenAI initialized with API key present:', !!process.env.OPENAI_API_KEY);
+console.log('OpenAI API key format:', process.env.OPENAI_API_KEY ? 
+    (process.env.OPENAI_API_KEY.startsWith('sk-') || process.env.OPENAI_API_KEY.startsWith('sk-proj-') ? 'valid' : 'invalid') : 
+    'missing');
 
-        const assessment = await assessReadiness(questions, answers, evaluations);
-        res.json({ assessment: JSON.parse(assessment) });
-    } catch (error) {
-        console.error('Server Error:', error);
-        res.status(500).json({ error: 'Failed to assess interview readiness' });
-    }
+// API Routes
+const router = express.Router();
+
+// Health check route
+router.get('/', (req, res) => {
+    console.log('[Health Check] Root endpoint accessed');
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV
+    });
 });
 
-// Generate questions endpoint
-app.post('/api/generate-questions', async (req, res) => {
-    console.log('Received request to generate questions');
+// Test route
+router.get('/test', (req, res) => {
+    console.log('[Test] Test endpoint accessed');
+    res.json({
+        message: 'Backend is running!',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV,
+        openaiKeyPresent: !!process.env.OPENAI_API_KEY
+    });
+});
+
+// Generate questions route
+router.post('/generate-questions', async (req, res) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] Generate questions endpoint accessed`);
     console.log('Request body:', req.body);
     
     try {
         const { jobData, type } = req.body;
         
-        if (!jobData) {
-            console.error('Missing job data');
-            return res.status(400).json({ error: 'Job description is required' });
-        }
-
-        if (!type) {
-            console.error('Missing interview type');
-            return res.status(400).json({ error: 'Interview type is required' });
+        if (!jobData || !type) {
+            console.error('Missing required fields');
+            return res.status(400).json({ 
+                error: 'Missing required fields',
+                jobData: !!jobData,
+                type: !!type,
+                timestamp
+            });
         }
 
         if (!process.env.OPENAI_API_KEY) {
             console.error('Missing OpenAI API key');
-            return res.status(500).json({ error: 'Server configuration error: Missing API key' });
+            return res.status(500).json({ 
+                error: 'Server configuration error: Missing API key',
+                timestamp
+            });
         }
 
-        console.log('Calling generateQuestions...');
-        const questions = await generateQuestions(jobData, '', type);
-        console.log('Generated questions:', questions);
-        
-        if (!questions || !Array.isArray(questions)) {
-            console.error('Invalid questions format:', questions);
-            return res.status(500).json({ error: 'Failed to generate valid questions' });
+        if (!process.env.OPENAI_API_KEY.startsWith('sk-') && !process.env.OPENAI_API_KEY.startsWith('sk-proj-')) {
+            console.error('Invalid API key format');
+            return res.status(500).json({ 
+                error: 'Server configuration error: Invalid API key format',
+                timestamp
+            });
         }
 
-        res.json({ questions });
+        console.log('Making OpenAI API call...');
+        const completion = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a professional interviewer. Generate interview questions in JSON format. Each question should have 'question' and 'answer' properties."
+                },
+                {
+                    role: "user",
+                    content: `Generate 5 ${type} interview questions based on this job description: "${jobData}". Format the response as a JSON array.`
+                }
+            ],
+            temperature: 0.7,
+            response_format: { type: "json_object" }
+        });
+
+        console.log('OpenAI API call successful');
+        const content = completion.choices[0].message.content;
+        console.log('OpenAI response:', content);
+
+        const parsedContent = JSON.parse(content);
+        const questions = Array.isArray(parsedContent) ? parsedContent : parsedContent.questions;
+
+        if (!Array.isArray(questions)) {
+            throw new Error('Invalid response format from OpenAI');
+        }
+
+        console.log('Successfully generated questions');
+        res.json({ 
+            questions,
+            timestamp,
+            success: true
+        });
     } catch (error) {
         console.error('Server Error:', error);
         res.status(500).json({ 
-            error: process.env.NODE_ENV === 'development' 
-                ? `Error: ${error.message}\n${error.stack}` 
-                : 'Failed to generate questions. Please try again.'
+            error: 'Failed to generate questions',
+            details: error.message,
+            timestamp,
+            success: false
         });
     }
 });
 
-// Serve static files AFTER API routes
-app.use(express.static('public'));
+// Mount the router at /api
+app.use('/api', router);
 
-// Catch-all route for SPA
-app.get('*', (req, res) => {
-    // Only handle non-API routes
-    if (!req.path.startsWith('/api/')) {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    }
+// Catch-all route handler for 404s
+app.use((req, res) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] 404 Not Found: ${req.method} ${req.path}`);
+    res.status(404).json({
+        error: 'Not Found',
+        message: `Cannot ${req.method} ${req.path}`,
+        timestamp
+    });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+// Error handling middleware
+app.use((err, req, res, next) => {
+    const timestamp = new Date().toISOString();
+    console.error(`[${timestamp}] Error:`, err);
+    res.status(500).json({ 
+        error: 'Internal server error', 
+        details: err.message,
+        timestamp
+    });
+});
+
+// Start server
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, '0.0.0.0', () => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] Server starting...`);
     console.log(`Server running on port ${PORT}`);
-});
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('OpenAI API Key present:', !!process.env.OPENAI_API_KEY);
+    console.log('Available routes:');
+    console.log('- GET /api (Health check)');
+    console.log('- GET /api/test (API test)');
+    console.log('- POST /api/generate-questions (Question generation)');
+}); 
